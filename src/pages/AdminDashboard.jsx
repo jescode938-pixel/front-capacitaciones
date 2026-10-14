@@ -6,6 +6,20 @@ import {
 import { getStats } from '../servicios/admin';
 import { createTraining, listTrainings, deleteTraining } from '../servicios/trainings';
 import { getAdminUser, logout } from '../servicios/auth';
+import { esDrive, extraerDriveId } from '../utils/drive';
+
+// Extrae el ID de YouTube de cualquier formato de URL
+function extraerYouTubeId(input) {
+  const limpio = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(limpio)) return limpio;
+  const matchWatch = limpio.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+  if (matchWatch) return matchWatch[1];
+  const matchShort = limpio.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+  if (matchShort) return matchShort[1];
+  const matchEmbed = limpio.match(/embed\/([a-zA-Z0-9_-]{11})/);
+  if (matchEmbed) return matchEmbed[1];
+  return limpio;
+}
 
 export default function AdminDashboard() {
   const admin = getAdminUser();
@@ -19,7 +33,7 @@ export default function AdminDashboard() {
     title: '',
     description: '',
     file_type: 'video',
-    file: null,
+    url: '',
   });
 
   const cargarTodo = async () => {
@@ -41,20 +55,50 @@ export default function AdminDashboard() {
   }, []);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.file || !form.title || !form.file_type) return;
-    setUploading(true);
-    setError('');
-    try {
-      await createTraining(form);
-      setForm({ title: '', description: '', file_type: 'video', file: null });
-      await cargarTodo();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error al subir');
-    } finally {
-      setUploading(false);
+  e.preventDefault();
+  if (!form.url || !form.title || !form.file_type) return;
+
+  setUploading(true);
+  setError('');
+  try {
+    let urlFinal = form.url.trim();
+
+    if (form.file_type === 'video') {
+      // Videos: solo YouTube por ahora
+      if (!urlFinal.includes('youtube') && !/^[a-zA-Z0-9_-]{11}$/.test(urlFinal)) {
+        throw new Error('El video debe ser de YouTube (URL o ID de 11 caracteres)');
+      }
+      urlFinal = extraerYouTubeId(urlFinal);
+    } else {
+      // Imagen o documento: validar que sea URL válida
+      if (!urlFinal.startsWith('http')) {
+        throw new Error('La URL debe empezar con http:// o https://');
+      }
+
+      // Si es Drive, avisar que debe ser público
+      if (esDrive(urlFinal)) {
+        const id = extraerDriveId(urlFinal);
+        if (!id) {
+          throw new Error('No se pudo extraer el ID del archivo de Drive');
+        }
+      }
     }
-  };
+
+    await createTraining({
+      title: form.title,
+      description: form.description,
+      file_type: form.file_type,
+      youtube_id: urlFinal,
+    });
+
+    setForm({ title: '', description: '', file_type: 'video', url: '' });
+    await cargarTodo();
+  } catch (err) {
+    setError(err.message || err.response?.data?.error || 'Error al guardar');
+  } finally {
+    setUploading(false);
+  }
+};
 
   const handleDelete = async (id) => {
     if (!confirm('¿Eliminar esta publicación?')) return;
@@ -66,10 +110,29 @@ export default function AdminDashboard() {
     }
   };
 
+  // Textos que cambian según el tipo
+  const tipoLabel = {
+    video: {
+      label: 'URL o ID de YouTube',
+      placeholder: 'Ej: dQw4w9WgXcQ',
+      ayuda: 'Pega la URL completa o solo el ID del video',
+    },
+    image: {
+      label: 'URL de la imagen',
+      placeholder: 'https://ejemplo.com/imagen.jpg',
+      ayuda: 'Sube la imagen a un servicio externo (Cloudinary, Drive, etc.) y pega la URL',
+    },
+    document: {
+      label: 'URL del documento (PDF)',
+      placeholder: 'https://ejemplo.com/documento.pdf',
+      ayuda: 'Sube el PDF a un servicio externo y pega la URL',
+    },
+  }[form.file_type];
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header sticky */}
-      <header className="bg-white/80 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
+      <header className="bg-white/90 backdrop-blur border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold shrink-0">
@@ -105,61 +168,83 @@ export default function AdminDashboard() {
           <h2 className="text-base sm:text-lg font-semibold text-slate-800 mb-4">
             Subir contenido
           </h2>
+
           <form onSubmit={handleSubmit} className="grid gap-3 sm:gap-4 sm:grid-cols-2">
-            <input
-              type="text"
-              placeholder="Título"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              required
-              className="px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:col-span-2"
-            />
-            <textarea
-              placeholder="Descripción (opcional)"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent sm:col-span-2"
-              rows={3}
-            />
-            <select
-              value={form.file_type}
-              onChange={(e) => setForm({ ...form, file_type: e.target.value })}
-              className="px-4 py-3 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="video">Video</option>
-              <option value="image">Imagen</option>
-              <option value="document">Documento (PDF)</option>
-            </select>
-
-            {/* File input con label bonito */}
-            <label className="relative flex items-center gap-3 px-4 py-3 border border-dashed border-slate-300 rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50/50 transition">
+            {/* Título */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Título
+              </label>
               <input
-                type="file"
-                onChange={(e) => setForm({ ...form, file: e.target.files[0] })}
+                type="text"
+                placeholder="Ej: Introducción a ventas"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 required
-                className="absolute inset-0 opacity-0 cursor-pointer"
+                className="w-full px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5 text-slate-400 shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-              </svg>
-              <span className="text-sm text-slate-600 truncate">
-                {form.file ? form.file.name : 'Elegir archivo'}
-              </span>
-            </label>
+            </div>
 
+            {/* Descripción */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Descripción (opcional)
+              </label>
+              <textarea
+                placeholder="Describe el contenido de esta capacitación"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+            </div>
+
+            {/* Tipo */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Tipo de contenido
+              </label>
+              <select
+                value={form.file_type}
+                onChange={(e) =>
+                  setForm({ ...form, file_type: e.target.value, url: '' })
+                }
+                className="w-full px-4 py-3 text-sm border border-slate-300 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="video">Video (YouTube)</option>
+                <option value="image">Imagen</option>
+                <option value="document">Documento (PDF)</option>
+              </select>
+            </div>
+
+            {/* URL dinámica según el tipo */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                {tipoLabel.label}
+              </label>
+              <input
+                type="text"
+                placeholder={tipoLabel.placeholder}
+                value={form.url}
+                onChange={(e) => setForm({ ...form, url: e.target.value })}
+                required
+                className="w-full px-4 py-3 text-sm border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+             {(form.file_type === 'image' || form.file_type === 'document') && (
+  <p className="text-xs text-slate-400 mt-1 sm:col-span-2">
+    💡 Si usas Google Drive, el archivo debe estar compartido como
+    "Cualquier persona con el enlace". Ejemplo: https://drive.google.com/file/d/ID/view
+  </p>
+)}
+            </div>
+
+            {/* Botón */}
             <button
               type="submit"
               disabled={uploading}
               className="sm:col-span-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-blue-300 text-white font-medium py-3 rounded-xl transition text-sm"
             >
-              {uploading ? 'Subiendo...' : 'Publicar'}
+              {uploading ? 'Guardando...' : 'Publicar'}
             </button>
           </form>
         </section>
@@ -267,7 +352,7 @@ export default function AdminDashboard() {
                         <p className="font-medium text-slate-800 text-sm truncate">
                           {t.title}
                         </p>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                           <span className="text-xs uppercase tracking-wide text-blue-600 font-semibold">
                             {t.file_type}
                           </span>

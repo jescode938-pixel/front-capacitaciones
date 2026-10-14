@@ -21,15 +21,12 @@ export async function registerView(id, viewerToken) {
 }
 
 // POST /api/trainings → crear (admin, multipart)
-export async function createTraining({ title, description, file_type, file }) {
-  const formData = new FormData();
-  formData.append('title', title);
-  formData.append('description', description || '');
-  formData.append('file_type', file_type);
-  formData.append('file', file);
-
-  const { data } = await api.post('/api/trainings', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+export async function createTraining({ title, description, file_type, youtube_id }) {
+  const { data } = await api.post('/api/trainings', {
+    title,
+    description,
+    file_type,
+    youtube_id,
   });
   return data;
 }

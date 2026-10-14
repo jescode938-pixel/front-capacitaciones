@@ -4,6 +4,7 @@ import { listTrainings } from '../servicios/trainings';
 import logo from '../assets/logo.jpeg';
 const API_URL = 'http://localhost:3000';
 
+import { resolverUrlArchivo } from '../utils/drive';
 // Colores y etiquetas por tipo
 const TIPO = {
   video: {
@@ -175,37 +176,51 @@ export default function PublicHome() {
                   className="group bg-white rounded-2xl shadow-sm hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden flex flex-col border border-slate-100"
                 >
                   {/* Thumbnail o degradado */}
-                  <div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
-                    {tieneThumb ? (
-                      <img
-                        src={`${API_URL}${t.file_url}`}
-                        alt={t.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="text-slate-300">
-                          {t.file_type === 'video' ? (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M8 5v14l11-7z" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" className="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                              <path d="M14 2v6h6" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                  {/* Thumbnail o degradado */}
+<div className="relative aspect-video bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden">
+  {t.file_type === 'image' && (
+    <img
+      src={resolverUrlArchivo(t.file_url, 'image')}
+      alt={t.title}
+      loading="lazy"
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+    />
+  )}
 
-                    {/* Badge de tipo */}
-                    <span className={`absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${tipo.clases} shadow-sm`}>
-                      {tipo.icono}
-                      {tipo.label}
-                    </span>
-                  </div>
+  {t.file_type === 'video' && (
+    <img
+      src={`https://img.youtube.com/vi/${t.file_url}/hqdefault.jpg`}
+      alt={t.title}
+      loading="lazy"
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+    />
+  )}
+
+{t.file_type === 'document' && (
+  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 to-amber-100">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="w-14 h-14 text-amber-500"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
+    </svg>
+    <span className="text-xs font-semibold text-amber-700 mt-2 uppercase tracking-wide">
+      Documento PDF
+    </span>
+  </div>
+)}
+
+  {/* Badge de tipo */}
+  <span className={`absolute top-3 left-3 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${tipo.clases} shadow-sm`}>
+    {tipo.icono}
+    {tipo.label}
+  </span>
+</div>
 
                   {/* Contenido */}
                   <div className="p-4 sm:p-5 flex-1 flex flex-col">

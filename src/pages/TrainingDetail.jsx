@@ -2,8 +2,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getTraining, registerView } from '../servicios/trainings';
 import { getViewerToken } from '../hooks/useViewerToken';
+import { resolverUrlArchivo } from '../utils/drive';
 
-const API_URL = 'http://localhost:3000';
+const API_URL = `http://${window.location.hostname}:3000`;
+
+
 
 const TIPO = {
   video: {
@@ -101,8 +104,8 @@ export default function TrainingDetail() {
 
   if (!training) return null;
 
-  const fileUrl = `${API_URL}${training.file_url}`;
-  const tipo = TIPO[training.file_type] || TIPO.document;
+const fileUrl = resolverUrlArchivo(training.file_url, training.file_type);
+const tipo = TIPO[training.file_type] || TIPO.document;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -133,15 +136,18 @@ export default function TrainingDetail() {
         <article className="bg-white rounded-2xl shadow-md border border-slate-100 overflow-hidden">
           {/* Reproductor */}
           <div className="bg-slate-900">
-            {training.file_type === 'video' && (
-              <video
-                ref={videoRef}
-                src={fileUrl}
-                controls
-                onPlay={marcarVista}
-                className="w-full aspect-video bg-black"
-              />
-            )}
+           {training.file_type === 'video' && (
+  <div className="w-full aspect-video bg-black">
+    <iframe
+      src={`https://www.youtube.com/embed/${training.file_url}?rel=0&modestbranding=1`}
+      title={training.title}
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+      allowFullScreen
+      className="w-full h-full"
+      onLoad={marcarVista}
+    />
+  </div>
+)}
 
             {training.file_type === 'image' && (
               <div className="flex items-center justify-center bg-slate-900">
