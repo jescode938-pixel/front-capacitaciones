@@ -5,7 +5,7 @@ import axios from 'axios';
 // - En el celular: "192.168.0.105"
 // Así las peticiones al backend siempre van al host correcto.
 const HOST = window.location.hostname;
-const API_URL = `http://${HOST}:3000`;
+const API_URL = `https://back-capacitaciones.vercel.app`;
 
 const api = axios.create({
   baseURL: API_URL,
