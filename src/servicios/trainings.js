@@ -42,3 +42,8 @@ export async function deleteTraining(id) {
   const { data } = await api.delete(`/api/trainings/${id}`);
   return data;
 }
+
+export async function getTrainingsVersion() {
+  const { data } = await api.get('/api/trainings/version');
+  return data; // { total, ultima }
+}

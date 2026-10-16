@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { listTrainings } from '../servicios/trainings';
+import { listTrainings, getTrainingsVersion } from '../servicios/trainings';
 import logo from '../assets/logo.jpeg';
 const API_URL = 'http://localhost:3000';
 
@@ -45,20 +45,72 @@ export default function PublicHome() {
   const [error, setError] = useState('');
   const [busqueda, setBusqueda] = useState('');
   const [filtro, setFiltro] = useState('todos');
+  const versionRef = useRef(null);
 
-  useEffect(() => {
-    const cargar = async () => {
-      try {
+  // Carga inicial
+useEffect(() => {
+  let activo = true;
+
+  const cargarInicial = async () => {
+    try {
+      const [data, version] = await Promise.all([
+        listTrainings(),
+        getTrainingsVersion(),
+      ]);
+      if (!activo) return;
+      setTrainings(data);
+      versionRef.current = `${version.total}-${version.ultima}`;
+    } catch (err) {
+      if (activo) setError(err.response?.data?.error || 'Error al cargar');
+    } finally {
+      if (activo) setLoading(false);
+    }
+  };
+
+  cargarInicial();
+  return () => {
+    activo = false;
+  };
+}, []);
+
+// Polling: cada 5s consulta si cambió la versión
+useEffect(() => {
+  const chequear = async () => {
+    try {
+      const version = await getTrainingsVersion();
+      const clave = `${version.total}-${version.ultima}`;
+
+      if (versionRef.current && clave !== versionRef.current) {
         const data = await listTrainings();
         setTrainings(data);
-      } catch (err) {
-        setError(err.response?.data?.error || 'Error al cargar');
-      } finally {
-        setLoading(false);
+        versionRef.current = clave;
+      } else if (!versionRef.current) {
+        versionRef.current = clave;
       }
-    };
-    cargar();
-  }, []);
+    } catch (err) {
+      console.warn('Error chequeando versión:', err.message);
+    }
+  };
+
+  const intervalo = setInterval(chequear, 5000);
+  return () => clearInterval(intervalo);
+}, []);
+
+// Refresca al volver a la pestaña
+useEffect(() => {
+  const onFocus = async () => {
+    try {
+      const [data, version] = await Promise.all([
+        listTrainings(),
+        getTrainingsVersion(),
+      ]);
+      setTrainings(data);
+      versionRef.current = `${version.total}-${version.ultima}`;
+    } catch {}
+  };
+  window.addEventListener('focus', onFocus);
+  return () => window.removeEventListener('focus', onFocus);
+}, []);
 
   // Filtrado por búsqueda y tipo
   const filtradas = useMemo(() => {

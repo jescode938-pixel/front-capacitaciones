@@ -1,12 +1,9 @@
 import axios from 'axios';
 
-// Detecta el host desde el que se abrió la página:
-// - En la PC: "localhost"
-// - En el celular: "192.168.0.105"
-// Así las peticiones al backend siempre van al host correcto.
+
 const HOST = window.location.hostname;
 const API_URL = `https://back-capacitaciones.vercel.app`;
-
+//const API_URL = `http://localhost:3000`;
 const api = axios.create({
   baseURL: API_URL,
   headers: {
